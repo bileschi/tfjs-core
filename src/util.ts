@@ -14,20 +14,21 @@
  * limitations under the License.
  * =============================================================================
  */
-import {Tensor} from './tensor';
+import {AbstractBaseTensor, Tensor} from './tensor';
 // tslint:disable-next-line:max-line-length
 import {DataType, DataTypeMap, FlatVector, NamedTensorMap, RecursiveArray, RegularArray, TensorContainer, TensorContainerArray, TypedArray} from './types';
 
 function assertArgumentIsTensor(
-    x: Tensor, argName: string, functionName: string) {
+    x: AbstractBaseTensor, argName: string, functionName: string) {
   assert(
-      x instanceof Tensor,
-      `Argument '${argName}' passed to '${functionName}' must be a Tensor, ` +
-          `but got ${typeof x}.`);
+      x instanceof AbstractBaseTensor,
+      `Argument '${argName}' passed to '${functionName}' must be a ` +
+          `Tensor, but got ${typeof x}.`);
 }
 
 export function assertArgumentsAreTensors(
-    args: {[argName: string]: Tensor|Tensor[]}, functionName: string) {
+    args: {[argName: string]: AbstractBaseTensor|AbstractBaseTensor[]},
+    functionName: string) {
   for (const argName in args) {
     const arg = args[argName];
     if (Array.isArray(arg)) {

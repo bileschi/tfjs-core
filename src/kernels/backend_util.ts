@@ -40,3 +40,10 @@ export function reshapeTensor<T extends Tensor<Rank>, R extends Rank>(
     x: T, shape: ShapeMap[R]): Tensor<R> {
   return Tensor.make(shape, {dataId: x.dataId}, x.dtype);
 }
+
+// DOING DOING DIONG DOING
+// export function
+// reshapeStringTensor < T extends StringTensor < Rank >, R extends Rank > (
+//  x: T, shape: ShapeMap[R]): Tensor<R> {
+// return StringTensor.make(shape, {dataId: x.dataId});
+//}
