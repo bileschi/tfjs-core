@@ -22,7 +22,7 @@ import * as ops from './ops/ops';
 import {Profiler} from './profiler';
 import {backpropagateGradients, getFilteredNodesXToY} from './tape';
 import {NamedGradientMap, TapeNode} from './tape';
-import {DataId, Tensor, Tensor3D, Variable} from './tensor';
+import {AbstractBaseTensor, DataId, Tensor, Tensor3D, Variable} from './tensor';
 // tslint:disable-next-line:max-line-length
 import {NamedTensorMap, NamedVariableMap, TensorContainer, TypedArray} from './types';
 import * as util from './util';
@@ -61,9 +61,7 @@ export type MemoryInfo = {
   unreliable?: boolean;
 };
 
-export interface TimingInfo extends BackendTimingInfo {
-  wallMs: number;
-}
+export interface TimingInfo extends BackendTimingInfo { wallMs: number; }
 
 export class Engine implements TensorManager {
   // Public since optimizers will use it.
@@ -157,7 +155,7 @@ export class Engine implements TensorManager {
     this.registeredVariables[v.name] = v;
   }
 
-  disposeTensor(a: Tensor): void {
+  disposeTensor(a: AbstractBaseTensor): void {
     if (!this.refCounter.has(a.dataId)) {
       return;
     }
@@ -167,11 +165,15 @@ export class Engine implements TensorManager {
     this.numTensors--;
     const refCount = this.refCounter.get(a.dataId);
     if (refCount <= 1) {
-      this.refCounter.delete(a.dataId);
-      this.backend.disposeData(a.dataId);
-      this.numDataBuffers--;
-      this.numBytes -=
-          util.sizeFromShape(a.shape) * util.bytesPerElement(a.dtype);
+      if (a instanceof Tensor) {
+        this.refCounter.delete(a.dataId);
+        this.backend.disposeData(a.dataId);
+        this.numDataBuffers--;
+        this.numBytes -=
+            util.sizeFromShape(a.shape) * util.bytesPerElement(a.dtype);
+      } else {
+        throw new Error(`Deleting string tensor not supported  DO NOT SUBMIT`);
+      }
     } else {
       this.refCounter.set(a.dataId, refCount - 1);
     }

@@ -144,14 +144,7 @@ export class TensorBuffer<R extends Rank> {
  */
 export type DataId = object;  // object instead of {} to force non-primitive.
 
-/**
- * A `Tensor` object represents an immutable, multidimensional array of numbers
- * that has a shape and a data type.
- *
- * See `tensor` for details on how to create a `Tensor`.
- */
-@doc({heading: 'Tensors', subheading: 'Classes'})
-export class Tensor<R extends Rank = Rank> {
+export abstract class AbstractBaseTensor<R extends Rank = Rank> {
   private static nextId = 0;
 
   /** Unique id of this tensor. */
@@ -165,8 +158,6 @@ export class Tensor<R extends Rank = Rank> {
   readonly shape: ShapeMap[R];
   /** Number of elements in the tensor. */
   readonly size: number;
-  /** The data type for the array. */
-  readonly dtype: DataType;
   /** The rank type for the array (see `Rank` enum). */
   readonly rankType: R;
 
@@ -177,22 +168,65 @@ export class Tensor<R extends Rank = Rank> {
    */
   readonly strides: number[];
 
+  protected constructor(shape: ShapeMap[R], dataId?: DataId) {
+    this.size = util.sizeFromShape(shape);
+    this.shape = shape.slice();
+    this.strides = computeStrides(shape);
+    this.dataId = dataId != null ? dataId : {};
+    this.id = Tensor.nextId++;
+    this.rankType = (this.rank < 5 ? this.rank.toString() : 'higher') as R;
+  }
+
+  get rank(): number {
+    return this.shape.length;
+  }
+
+  private isDisposedInternal = false;
+  get isDisposed(): boolean {
+    return this.isDisposedInternal;
+  }
+
+  protected throwIfDisposed() {
+    if (this.isDisposed) {
+      throw new Error(`Tensor is disposed.`);
+    }
+  }
+
+  /**
+   * Disposes `Tensor` from memory.
+   */
+  @doc({heading: 'Tensors', subheading: 'Classes'})
+  dispose(): void {
+    if (this.isDisposed) {
+      return;
+    }
+    ENV.engine.disposeTensor(this);
+    this.isDisposedInternal = true;
+  }
+}
+
+/**
+ * A `Tensor` object represents an immutable, multidimensional array of numbers
+ * that has a shape and a data type.
+ *
+ * See `tensor` for details on how to create a `Tensor`.
+ */
+@doc({heading: 'Tensors', subheading: 'Classes'})
+export class Tensor<R extends Rank = Rank> extends AbstractBaseTensor<R> {
+  /** The data type for the array. */
+  readonly dtype: DataType;
+
   protected constructor(
       shape: ShapeMap[R], dtype: DataType, values?: TypedArray,
       dataId?: DataId) {
-    this.size = util.sizeFromShape(shape);
+    super(shape, dataId);
     if (values != null) {
       util.assert(
           this.size === values.length,
           `Constructing tensor of shape (${this.size}) should match the ` +
               `length of values (${values.length})`);
     }
-    this.shape = shape.slice();
     this.dtype = dtype || 'float32';
-    this.strides = computeStrides(shape);
-    this.dataId = dataId != null ? dataId : {};
-    this.id = Tensor.nextId++;
-    this.rankType = (this.rank < 5 ? this.rank.toString() : 'higher') as R;
     ENV.engine.registerTensor(this);
     if (values != null) {
       ENV.engine.write(this.dataId, values);
@@ -281,10 +315,6 @@ export class Tensor<R extends Rank = Rank> {
     return ops.cast(this, dtype);
   }
 
-  get rank(): number {
-    return this.shape.length;
-  }
-
   /**
    * Returns the value in the tensor at the provided location.
    * If using WebGL backend, this is a blocking call.
@@ -331,29 +361,6 @@ export class Tensor<R extends Rank = Rank> {
   dataSync(): TypedArray {
     this.throwIfDisposed();
     return ENV.engine.readSync(this.dataId);
-  }
-
-  /**
-   * Disposes `Tensor` from memory.
-   */
-  @doc({heading: 'Tensors', subheading: 'Classes'})
-  dispose(): void {
-    if (this.isDisposed) {
-      return;
-    }
-    ENV.engine.disposeTensor(this);
-    this.isDisposedInternal = true;
-  }
-
-  private isDisposedInternal = false;
-  get isDisposed(): boolean {
-    return this.isDisposedInternal;
-  }
-
-  private throwIfDisposed() {
-    if (this.isDisposed) {
-      throw new Error(`Tensor is disposed.`);
-    }
   }
 
   /** Casts the array to type `float32` */
